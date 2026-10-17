@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
@@ -116,6 +116,11 @@ app.use('/api/credentials', require('./routes/credentialActivity'));
 app.use('/api/wallets', require('./routes/wallets'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/withdrawals', require('./routes/withdrawals'));
+
+// Development-only route for email template preview (#1036)
+if (process.env.NODE_ENV === 'development') {
+  app.use('/api/dev', require('./routes/dev'));
+}
 
 app.use(normalizeErrorResponse);
 app.use(errorHandler);
