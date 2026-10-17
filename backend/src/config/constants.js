@@ -17,6 +17,46 @@ module.exports = {
   TX_TIMEOUT_WITHDRAWAL_S: 60 * 60 * 24 * 7, // 7 days
 
   // --------------------------------------------------------------------------------------
+  // Campaign wallet Stellar multisig thresholds & weights (#1037)
+  // --------------------------------------------------------------------------------------
+
+  /** Standard campaign multisig thresholds: medium ops (payments) require both creator + platform (weight 2). */
+  MULTISIG_STANDARD_THRESHOLDS: {
+    masterWeight: 0,
+    lowThreshold: 1,
+    medThreshold: 2,
+    highThreshold: 2,
+  },
+
+  /** Active dispute freeze thresholds: operations require creator + platform + arbitrator (weight 3). */
+  MULTISIG_DISPUTE_FROZEN_THRESHOLDS: {
+    medThreshold: 3,
+    highThreshold: 3,
+  },
+
+  /** Released dispute freeze thresholds: restored to creator + platform (weight 2). */
+  MULTISIG_DISPUTE_RELEASED_THRESHOLDS: {
+    medThreshold: 2,
+    highThreshold: 2,
+  },
+
+  /** Teardown / cleanup thresholds: lowered to 1 so platform can sweep & merge remaining balance. */
+  MULTISIG_CLEANUP_THRESHOLDS: {
+    lowThreshold: 1,
+    medThreshold: 1,
+    highThreshold: 1,
+  },
+
+  /** Standard signer weight for authorized multisig signers (creator, platform, arbitrator). */
+  MULTISIG_SIGNER_WEIGHT: 1,
+
+  /** Weight to remove / revoke a signer. */
+  MULTISIG_SIGNER_WEIGHT_REMOVE: 0,
+
+  /** Weight to disable the master keypair itself. */
+  MULTISIG_MASTER_WEIGHT_DISABLED: 0,
+
+  // --------------------------------------------------------------------------------------
   // Path payment slippage buffer
   // --------------------------------------------------------------------------------------
 

@@ -33,6 +33,13 @@ const {
   CUSTODIAL_ACCOUNT_BASE_RESERVE_XLM,
   CUSTODIAL_ACCOUNT_PER_TRUSTLINE_XLM,
 } = require('../config/constants');
+const {
+  buildCampaignMultisigOperations,
+  buildFreezeEscrowOperations,
+  buildReleaseEscrowFreezeOperations,
+  buildRemoveSignerOperation,
+  buildCloseWalletMultisigOperations,
+} = require('./campaignMultisig');
 
 const logger = require('../config/logger');
 const db = require('../config/database');
@@ -267,29 +274,13 @@ async function createCampaignWallet(creatorPublicKey, campaignKeypair) {
   for (const code of creditCodes) {
     setupBuilder.addOperation(Operation.changeTrust({ asset: toStellarAsset(code) }));
   }
-  const setupTx = setupBuilder
-    .addOperation(
-      Operation.setOptions({
-        signer: { ed25519PublicKey: creatorPublicKey, weight: 1 },
-      })
-    )
-    // Add platform as signer (weight 1)
-    .addOperation(
-      Operation.setOptions({
-        signer: { ed25519PublicKey: getPlatformKeypair().publicKey(), weight: 1 },
-      })
-    )
-    // Set thresholds: medium ops (payments) require weight 2 (both signers)
-    .addOperation(
-      Operation.setOptions({
-        masterWeight: 0, // disable the campaign keypair itself
-        lowThreshold: 1,
-        medThreshold: 2,
-        highThreshold: 2,
-      })
-    )
-    .setTimeout(TX_TIMEOUT_CONTRIBUTION_S)
-    .build();
+  for (const op of buildCampaignMultisigOperations({
+    creatorPublicKey,
+    platformPublicKey: getPlatformKeypair().publicKey(),
+  })) {
+    setupBuilder.addOperation(op);
+  }
+  const setupTx = setupBuilder.setTimeout(TX_TIMEOUT_CONTRIBUTION_S).build();
 
   setupTx.sign(campaignKeypair);
   await server.submitTransaction(setupTx);
@@ -334,23 +325,16 @@ async function freezeCampaignEscrow({ campaignWalletPublicKey, creatorId }) {
   const campaignAccount = await server.loadAccount(campaignWalletPublicKey);
   const creatorSecret = await loadDecryptedCreatorSecret(creatorId);
 
-  const tx = new TransactionBuilder(campaignAccount, {
+  const txBuilder = new TransactionBuilder(campaignAccount, {
     fee: BASE_FEE,
     networkPassphrase,
-  })
-    .addOperation(
-      Operation.setOptions({
-        signer: { ed25519PublicKey: getArbitratorKeypair().publicKey(), weight: 1 },
-      })
-    )
-    .addOperation(
-      Operation.setOptions({
-        medThreshold: 3,
-        highThreshold: 3,
-      })
-    )
-    .setTimeout(TX_TIMEOUT_WITHDRAWAL_S)
-    .build();
+  });
+  for (const op of buildFreezeEscrowOperations({
+    arbitratorPublicKey: getArbitratorKeypair().publicKey(),
+  })) {
+    txBuilder.addOperation(op);
+  }
+  const tx = txBuilder.setTimeout(TX_TIMEOUT_WITHDRAWAL_S).build();
 
   tx.sign(Keypair.fromSecret(creatorSecret));
   tx.sign(getPlatformKeypair());
@@ -369,23 +353,16 @@ async function releaseEscrowFreeze({ campaignWalletPublicKey, creatorId }) {
   const campaignAccount = await server.loadAccount(campaignWalletPublicKey);
   const creatorSecret = await loadDecryptedCreatorSecret(creatorId);
 
-  const tx = new TransactionBuilder(campaignAccount, {
+  const txBuilder = new TransactionBuilder(campaignAccount, {
     fee: BASE_FEE,
     networkPassphrase,
-  })
-    .addOperation(
-      Operation.setOptions({
-        signer: { ed25519PublicKey: getArbitratorKeypair().publicKey(), weight: 0 },
-      })
-    )
-    .addOperation(
-      Operation.setOptions({
-        medThreshold: 2,
-        highThreshold: 2,
-      })
-    )
-    .setTimeout(TX_TIMEOUT_WITHDRAWAL_S)
-    .build();
+  });
+  for (const op of buildReleaseEscrowFreezeOperations({
+    arbitratorPublicKey: getArbitratorKeypair().publicKey(),
+  })) {
+    txBuilder.addOperation(op);
+  }
+  const tx = txBuilder.setTimeout(TX_TIMEOUT_WITHDRAWAL_S).build();
 
   tx.sign(Keypair.fromSecret(creatorSecret));
   tx.sign(getPlatformKeypair());
@@ -1372,14 +1349,7 @@ async function revokeAndCloseCampaignWallet(campaign) {
   }
 
   // 2. Remove Platform Signer
-  builder.addOperation(
-    Operation.setOptions({
-      signer: {
-        ed25519PublicKey: getPlatformKeypair().publicKey(),
-        weight: 0,
-      },
-    })
-  );
+  builder.addOperation(buildRemoveSignerOperation(getPlatformKeypair().publicKey()));
 
   // 3. Account Merge (sweeps all native XLM and closes account entry on-chain)
   builder.addOperation(
@@ -1424,37 +1394,17 @@ async function revokeAndCloseCampaignWallet(campaign) {
 async function closeCampaignWalletBySecret(walletPublicKey, walletSecret) {
   try {
     const account = await server.loadAccount(walletPublicKey);
-    const tx = new TransactionBuilder(account, {
+    const builder = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase,
-    })
-      // Remove campaign keypair as signer
-      .addOperation(
-        Operation.setOptions({
-          signer: {
-            ed25519PublicKey: walletPublicKey,
-            weight: 0,
-          },
-        })
-      )
-      // Remove platform signer
-      .addOperation(
-        Operation.setOptions({
-          signer: {
-            ed25519PublicKey: getPlatformKeypair().publicKey(),
-            weight: 0,
-          },
-        })
-      )
-      // Set low threshold to 1 so the merge can go through with just the
-      // platform key when the campaign wallet signer is disabled.
-      .addOperation(
-        Operation.setOptions({
-          lowThreshold: 1,
-          medThreshold: 1,
-          highThreshold: 1,
-        })
-      )
+    });
+    for (const op of buildCloseWalletMultisigOperations({
+      walletPublicKey,
+      platformPublicKey: getPlatformKeypair().publicKey(),
+    })) {
+      builder.addOperation(op);
+    }
+    const tx = builder
       .addOperation(
         Operation.accountMerge({
           destination: getPlatformKeypair().publicKey(),
@@ -1536,6 +1486,12 @@ module.exports = {
   validateSubmittedWithdrawalXdr,
   validateWithdrawalForPlatformSigning,
   WithdrawalValidationError,
+
+  buildCampaignMultisigOperations,
+  buildFreezeEscrowOperations,
+  buildReleaseEscrowFreezeOperations,
+  buildRemoveSignerOperation,
+  buildCloseWalletMultisigOperations,
 };
 
 // Backward-compat lazy properties (resolved on access, not at require time).
