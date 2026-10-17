@@ -102,4 +102,79 @@ describe('RecurringPledgeForm', () => {
       )
     );
   });
+
+  describe('Keyboard and Screen Reader Accessibility in ConfirmLockModal', () => {
+    function openConfirmModal() {
+      openForm();
+      fireEvent.change(screen.getByLabelText('Amount per period (XLM)'), {
+        target: { value: '10' },
+      });
+      const triggerBtn = screen.getByRole('button', { name: 'Confirm & Lock Funds' });
+      triggerBtn.focus();
+      fireEvent.click(triggerBtn);
+      return triggerBtn;
+    }
+
+    it('has role="dialog", aria-modal="true", and aria-labelledby matching the title', () => {
+      openConfirmModal();
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'confirm-lock-title');
+
+      const title = screen.getByRole('heading', { level: 2 });
+      expect(title).toHaveAttribute('id', 'confirm-lock-title');
+      expect(title).toHaveTextContent(/Lock 60 XLM now\?/);
+    });
+
+    it('renders overlay with role="presentation"', () => {
+      openConfirmModal();
+
+      const dialog = screen.getByRole('dialog');
+      const overlay = dialog.closest('.modal-overlay');
+      expect(overlay).toHaveAttribute('role', 'presentation');
+    });
+
+    it('closes on Escape key press', () => {
+      openConfirmModal();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('focuses the first focusable element on mount', () => {
+      openConfirmModal();
+
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+      expect(cancelButton).toHaveFocus();
+    });
+
+    it('traps focus inside the dialog when tabbing', () => {
+      openConfirmModal();
+
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+      const confirmButton = screen
+        .getAllByRole('button', { name: 'Confirm & Lock Funds' })
+        .slice(-1)[0];
+
+      // On Cancel (first element), Shift+Tab wraps to Confirm (last element)
+      cancelButton.focus();
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Tab', shiftKey: true });
+      expect(confirmButton).toHaveFocus();
+
+      // On Confirm (last element), Tab wraps to Cancel (first element)
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Tab', shiftKey: false });
+      expect(cancelButton).toHaveFocus();
+    });
+
+    it('restores focus to the triggering button when modal is dismissed', () => {
+      const triggerBtn = openConfirmModal();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(triggerBtn).toHaveFocus();
+    });
+  });
 });

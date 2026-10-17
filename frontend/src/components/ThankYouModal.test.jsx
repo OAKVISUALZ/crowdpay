@@ -141,4 +141,113 @@ describe('ThankYouModal Component', () => {
       expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
+
+  describe('Keyboard and Screen Reader Accessibility', () => {
+    it('has role="dialog", aria-modal="true", and aria-labelledby matching the title', () => {
+      render(
+        <ThankYouModal
+          campaignId="camp-1"
+          contribution={null}
+          onClose={mockOnClose}
+          onSent={mockOnSent}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'thank-you-title');
+
+      const title = screen.getByRole('heading', { level: 2 });
+      expect(title).toHaveAttribute('id', 'thank-you-title');
+      expect(title).toHaveTextContent('Send Bulk Thank You');
+    });
+
+    it('renders overlay with role="presentation"', () => {
+      const { container } = render(
+        <ThankYouModal
+          campaignId="camp-1"
+          contribution={null}
+          onClose={mockOnClose}
+          onSent={mockOnSent}
+        />
+      );
+
+      const overlay = container.querySelector('.modal-overlay');
+      expect(overlay).toHaveAttribute('role', 'presentation');
+    });
+
+    it('closes on Escape key press', () => {
+      render(
+        <ThankYouModal
+          campaignId="camp-1"
+          contribution={null}
+          onClose={mockOnClose}
+          onSent={mockOnSent}
+        />
+      );
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('focuses the first focusable element on mount', () => {
+      render(
+        <ThankYouModal
+          campaignId="camp-1"
+          contribution={null}
+          onClose={mockOnClose}
+          onSent={mockOnSent}
+        />
+      );
+
+      const textarea = screen.getByRole('textbox');
+      expect(textarea).toHaveFocus();
+    });
+
+    it('traps focus inside the dialog when tabbing', () => {
+      render(
+        <ThankYouModal
+          campaignId="camp-1"
+          contribution={null}
+          onClose={mockOnClose}
+          onSent={mockOnSent}
+        />
+      );
+
+      const textarea = screen.getByRole('textbox');
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+
+      // Initially on textarea (first element), pressing Shift+Tab wraps to Cancel (last enabled element)
+      textarea.focus();
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Tab', shiftKey: true });
+      expect(cancelButton).toHaveFocus();
+
+      // From Cancel (last element), pressing Tab wraps to textarea (first element)
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Tab', shiftKey: false });
+      expect(textarea).toHaveFocus();
+    });
+
+    it('restores focus to the triggering element on unmount', () => {
+      const triggerButton = document.createElement('button');
+      triggerButton.textContent = 'Open Thank You';
+      document.body.appendChild(triggerButton);
+      triggerButton.focus();
+      expect(triggerButton).toHaveFocus();
+
+      const { unmount } = render(
+        <ThankYouModal
+          campaignId="camp-1"
+          contribution={null}
+          onClose={mockOnClose}
+          onSent={mockOnSent}
+        />
+      );
+
+      expect(screen.getByRole('textbox')).toHaveFocus();
+
+      unmount();
+      expect(triggerButton).toHaveFocus();
+      document.body.removeChild(triggerButton);
+    });
+  });
 });

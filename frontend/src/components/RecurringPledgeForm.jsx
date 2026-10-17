@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { getNetwork, signTransaction } from '@stellar/freighter-api';
 
@@ -36,17 +36,73 @@ function ConfirmLockModal({
   onClose,
 }) {
   const periodLabel = PERIOD_OPTIONS.find((p) => p.months === periodMonths)?.label.toLowerCase();
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    const trigger = document.activeElement;
+    return () => {
+      if (trigger && typeof trigger.focus === 'function' && trigger.isConnected) {
+        trigger.focus();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+    const initialFocusable = modal.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    initialFocusable[0]?.focus();
+
+    function trapTab(e) {
+      if (e.key !== 'Tab') return;
+      const focusable = modal.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) {
+        e.preventDefault();
+        if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
+        modal.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!modal.contains(document.activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first)?.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+    modal.addEventListener('keydown', trapTab);
+    return () => modal.removeEventListener('keydown', trapTab);
+  }, []);
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
+    <div className="modal-overlay" style={styles.overlay} onClick={onClose} role="presentation">
       <div
+        className="modal-shell"
+        ref={modalRef}
         style={styles.modal}
         role="dialog"
         aria-modal="true"
-        aria-label="Confirm recurring pledge"
+        aria-labelledby="confirm-lock-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem' }}>
+        <h2 id="confirm-lock-title" style={{ margin: '0 0 0.5rem', fontSize: '1.1rem' }}>
           Lock {totalCommitment} {asset} now?
         </h2>
         <p
@@ -91,6 +147,7 @@ function ConfirmLockModal({
             type="button"
             className="btn-secondary"
             onClick={onClose}
+            data-modal-close="true"
             style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
           >
             Cancel
