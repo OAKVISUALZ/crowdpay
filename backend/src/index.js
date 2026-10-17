@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
@@ -98,6 +98,7 @@ app.use('/api/milestones', require('./routes/milestoneChecklists'));
 app.use('/api/nft-rewards', require('./routes/nftRewards'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/ops', require('./routes/ops'));
+app.use('/api/rates', require('./routes/rates'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/refunds', require('./routes/creatorRefunds'));
 app.use('/api/refund-requests', require('./routes/refundRequests'));

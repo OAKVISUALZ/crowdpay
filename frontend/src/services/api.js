@@ -190,6 +190,10 @@ export const api = {
     const res = await apiClient.get('/governance/fee');
     return res.data;
   },
+  async getExchangeRates(target = 'NGN') {
+    const res = await apiClient.get('/rates', { params: { target } });
+    return res.data;
+  },
   async getFeaturedCampaigns() {
     const res = await apiClient.get('/campaigns/featured');
     return res.data;

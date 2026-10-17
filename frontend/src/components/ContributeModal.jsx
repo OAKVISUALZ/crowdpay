@@ -11,6 +11,7 @@ import { api } from '../services/api';
 import { getDeviceFingerprint } from '../lib/deviceFingerprint';
 import { stellarExpertTxUrl } from '../config/stellar';
 import KycPrompt from './KycPrompt';
+import { useExchangeRate } from '../hooks/useExchangeRate';
 
 const SEND_OPTIONS = [
   { value: 'XLM', label: 'XLM', hint: 'Native Stellar' },
@@ -121,6 +122,10 @@ export default function ContributeModal({
 }) {
   const { user, token, updateUser } = useAuth();
   const [amount, setAmount] = useState(initialAmount);
+  const { formatNaira } = useExchangeRate(campaign.asset_type || 'USDC');
+  const nairaAmount = formatNaira(amount);
+  const minNaira = campaign.min_contribution ? formatNaira(campaign.min_contribution) : null;
+  const maxNaira = campaign.max_contribution ? formatNaira(campaign.max_contribution) : null;
   const [sendAsset, setSendAsset] = useState(campaign.asset_type);
   const [paymentMethod, setPaymentMethod] = useState(
     guestFreighterMode ? 'freighter' : 'custodial'
@@ -876,6 +881,20 @@ export default function ContributeModal({
                   onChange={(e) => setAmount(e.target.value)}
                   aria-describedby="contrib-amount-help"
                 />
+                {nairaAmount && (
+                  <div
+                    className="contrib-naira-approx"
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--color-text-secondary)',
+                      marginTop: '0.35rem',
+                      fontWeight: 500,
+                    }}
+                    aria-label={`approximate naira value: ₦${nairaAmount}`}
+                  >
+                    ≈ ₦{nairaAmount} (approx.)
+                  </div>
+                )}
                 <span id="contrib-amount-help" style={styles.help}>
                   <span style={{ display: 'block', marginBottom: '0.25rem' }}>
                     This is the credited amount toward the campaign goal, in {campaign.asset_type}.
@@ -904,6 +923,7 @@ export default function ContributeModal({
                             Minimum per contribution:{' '}
                             {Number(campaign.min_contribution).toLocaleString()}{' '}
                             {campaign.asset_type}
+                            {minNaira && ` (≈ ₦${minNaira} approx.)`}
                           </li>
                         )}
                         {campaign.max_contribution && (
@@ -911,6 +931,7 @@ export default function ContributeModal({
                             Maximum per contribution:{' '}
                             {Number(campaign.max_contribution).toLocaleString()}{' '}
                             {campaign.asset_type}
+                            {maxNaira && ` (≈ ₦${maxNaira} approx.)`}
                           </li>
                         )}
                         {campaign.max_per_user &&
@@ -988,7 +1009,7 @@ export default function ContributeModal({
                     <input
                       type="checkbox"
                       checked={giftEnabled}
-                      onChange={event => setGiftEnabled(event.target.checked)}
+                      onChange={(event) => setGiftEnabled(event.target.checked)}
                     />{' '}
                     Notify someone that you contributed in their honor
                   </label>
@@ -998,7 +1019,7 @@ export default function ContributeModal({
                       <input
                         id="gift-recipient-name"
                         value={giftRecipientName}
-                        onChange={event => setGiftRecipientName(event.target.value)}
+                        onChange={(event) => setGiftRecipientName(event.target.value)}
                         maxLength={100}
                         required
                       />
@@ -1007,7 +1028,7 @@ export default function ContributeModal({
                         id="gift-recipient-email"
                         type="email"
                         value={giftRecipientEmail}
-                        onChange={event => setGiftRecipientEmail(event.target.value)}
+                        onChange={(event) => setGiftRecipientEmail(event.target.value)}
                         maxLength={254}
                         required
                       />
@@ -1015,11 +1036,12 @@ export default function ContributeModal({
                       <textarea
                         id="gift-message"
                         value={giftMessage}
-                        onChange={event => setGiftMessage(event.target.value)}
+                        onChange={(event) => setGiftMessage(event.target.value)}
                         maxLength={280}
                       />
                       <span style={styles.help}>
-                        The recipient is emailed only after the contribution is confirmed on Stellar.
+                        The recipient is emailed only after the contribution is confirmed on
+                        Stellar.
                       </span>
                     </>
                   )}

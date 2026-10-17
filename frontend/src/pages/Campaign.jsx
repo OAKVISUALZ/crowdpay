@@ -10,6 +10,7 @@ import ContributeModal from '../components/ContributeModal';
 import RefundsSection from '../components/RefundsSection';
 import BudgetBreakdown from '../components/BudgetBreakdown';
 import TeamCampaignsSection from '../components/TeamCampaignsSection';
+import { useExchangeRate } from '../hooks/useExchangeRate';
 
 const SUPPORTED_LOCALES = [
   { code: 'fr', label: 'French (Français)' },
@@ -500,6 +501,9 @@ export default function Campaign() {
   const currentLocale = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
 
   const [campaign, setCampaign] = useState(null);
+  const { formatNaira } = useExchangeRate(campaign?.asset_type || 'USDC');
+  const nairaRaised = campaign ? formatNaira(campaign.raised_amount) : null;
+  const nairaTarget = campaign ? formatNaira(campaign.target_amount) : null;
   const [translation, setTranslation] = useState(null);
   const [translations, setTranslations] = useState([]);
   const [translationsLoading, setTranslationsLoading] = useState(false);
@@ -1753,6 +1757,12 @@ export default function Campaign() {
                   <strong style={{ fontSize: '1.05rem' }}>{tier.title}</strong>
                   <span style={styles.asset}>
                     {Number(tier.min_amount).toLocaleString()}+ {tier.asset_type}
+                    {formatNaira(tier.min_amount) && (
+                      <span style={styles.nairaTier} title="Approximate NGN value">
+                        {' '}
+                        (≈ ₦{formatNaira(tier.min_amount)} approx.)
+                      </span>
+                    )}
                   </span>
                 </div>
                 {tier.description && (
@@ -1793,9 +1803,29 @@ export default function Campaign() {
           <div>
             <div style={styles.big}>
               {Number(campaign.raised_amount).toLocaleString()} {campaign.asset_type}
+              {nairaRaised && (
+                <span
+                  style={styles.nairaBig}
+                  title="Approximate NGN value"
+                  aria-label={`approximate naira value: ₦${nairaRaised}`}
+                >
+                  {' '}
+                  (≈ ₦{nairaRaised} approx.)
+                </span>
+              )}
             </div>
             <div style={styles.small}>
-              raised of {Number(campaign.target_amount).toLocaleString()} goal
+              raised of {Number(campaign.target_amount).toLocaleString()} {campaign.asset_type}{' '}
+              {nairaTarget && (
+                <span
+                  style={styles.nairaSmall}
+                  title="Approximate NGN value"
+                  aria-label={`approximate naira goal: ₦${nairaTarget}`}
+                >
+                  (≈ ₦{nairaTarget} approx.){' '}
+                </span>
+              )}
+              goal
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -4044,6 +4074,24 @@ const styles = {
   },
   big: { fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' },
   small: { fontSize: '0.85rem', color: 'var(--color-text-muted)' },
+  nairaBig: {
+    fontSize: '0.95rem',
+    fontWeight: 500,
+    color: 'var(--color-text-secondary)',
+    marginLeft: '0.35rem',
+    verticalAlign: 'middle',
+  },
+  nairaSmall: {
+    fontSize: '0.8rem',
+    color: 'var(--color-text-secondary)',
+    fontWeight: 500,
+  },
+  nairaTier: {
+    fontSize: '0.85rem',
+    color: 'var(--color-text-secondary)',
+    fontWeight: 500,
+    marginLeft: '0.25rem',
+  },
   bar: {
     background: 'var(--color-surface)',
     borderRadius: '99px',

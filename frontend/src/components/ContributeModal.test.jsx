@@ -363,4 +363,12 @@ describe('ContributeModal', () => {
       });
     });
   });
+
+  it('displays approximate naira amount when amount is entered', async () => {
+    const user = userEvent.setup();
+    renderModal({ min_contribution: '5' });
+    const input = screen.getByLabelText(/Amount campaign receives/i);
+    await user.type(input, '10');
+    expect(screen.getByText(/≈ ₦.*\(approx\.\)/i)).toBeInTheDocument();
+  });
 });

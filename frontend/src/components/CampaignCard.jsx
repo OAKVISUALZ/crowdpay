@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useExchangeRate } from '../hooks/useExchangeRate';
 import VerificationBadge from './VerificationBadge';
 import CampaignStatusBadge from './CampaignStatusBadge';
 
@@ -50,6 +51,9 @@ const CATEGORY_LABELS = {
 
 function CampaignCard({ campaign, featured }) {
   const { t } = useTranslation();
+  const { formatNaira } = useExchangeRate(campaign.asset_type || 'USDC');
+  const nairaRaised = formatNaira(campaign.raised_amount);
+  const nairaTarget = formatNaira(campaign.target_amount);
   const pct = Math.min(100, (campaign.raised_amount / campaign.target_amount) * 100).toFixed(1);
   const fillColor = progressColor(parseFloat(pct), campaign.status);
   const deadline = daysLeft(campaign.deadline);
@@ -128,9 +132,29 @@ function CampaignCard({ campaign, featured }) {
             <div style={styles.amountRow}>
               <span style={styles.raisedAmount}>
                 <strong>${Number(campaign.raised_amount).toLocaleString()}</strong> raised
+                {nairaRaised && (
+                  <span
+                    style={styles.nairaApprox}
+                    title="Approximate NGN value"
+                    aria-label={`approximate naira value: ₦${nairaRaised}`}
+                  >
+                    {' '}
+                    (≈ ₦{nairaRaised} approx.)
+                  </span>
+                )}
               </span>
               <span style={styles.targetAmount}>
                 of ${Number(campaign.target_amount).toLocaleString()}
+                {nairaTarget && (
+                  <span
+                    style={styles.nairaApprox}
+                    title="Approximate NGN value"
+                    aria-label={`approximate naira goal: ₦${nairaTarget}`}
+                  >
+                    {' '}
+                    (≈ ₦{nairaTarget} approx.)
+                  </span>
+                )}
               </span>
             </div>
             <div className="progress-bar" style={styles.progressBar}>
@@ -261,6 +285,13 @@ const styles = {
   targetAmount: {
     fontSize: '0.8rem',
     color: 'var(--color-text-hint)',
+  },
+  nairaApprox: {
+    fontSize: '0.72rem',
+    color: 'var(--color-text-secondary)',
+    fontWeight: 500,
+    marginLeft: '0.2rem',
+    whiteSpace: 'nowrap',
   },
   progressBar: {
     height: '6px',
